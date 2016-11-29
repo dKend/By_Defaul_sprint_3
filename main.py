@@ -43,14 +43,14 @@ class DumpDBHandler(BaseHandler):
 		# I got sick of doing it manually
 		for q in Question.query().fetch():
 			q.key.delete()
-		#for u in User.query().fetch():
-		#	u.key.delete()
+		for u in User.query().fetch():
+			u.key.delete()
 		#if len(User.query().fetch()) !=0:
 		#	self.response.write("DEZ USERS BE TOO STRONK MON!<br>")
-		#for c in Class.query().fetch():
-		#	c.key.delete()
-		#for t in Category.query().fetch():
-		#	t.key.delete()
+		for c in Class.query().fetch():
+			c.key.delete()
+		for t in Category.query().fetch():
+			t.key.delete()
 		self.response.write("We be dumpin dat dank DB!")
 		
 class TestOutputHandler(BaseHandler):
@@ -122,7 +122,7 @@ app = webapp2.WSGIApplication([
     ('/instructorhomepage', InstructorHomeHandler),
 #	('/t', ValidateUserTestHandler),
 	('/tests', TestOutputHandler),
-	('/ddb', DumpDBHandler),
+#	('/ddb', DumpDBHandler),
     ('/registrationhomepage', RegistrationMainHandler),
     ('/addinstructor', AddInstructorHandler),
     ('/addstudent', AddStudentHandler),
