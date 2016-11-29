@@ -26,105 +26,104 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 		loader=jinja2.FileSystemLoader(os.path.dirname(__file__))
 )
 
-if len(User.query(User.username == 'admin').fetch()) == 0:
-	u = User(
-		username = 'admin',
-		password = 'admin',
-		firstname = 'test',
-		lastname = 'test',
-		email = 'test',
-		accounttype ='admin'
-	)
-	u_key = u.unique_put()
-else:
-	u = User.query(User.username == 'admin').fetch()[0]
-	u_key = u.key
-	
-if len(User.query(User.username == 'student').fetch()) == 0:
-	s = User(
-		username = 'student',
-		password = 'student',
-		firstname = 'student',
-		lastname = 'student',
-		email = 'student',
-		accounttype ='student'
-	)
-	s_key = s.unique_put()
-else:
-	s = User.query(User.username == 'student').fetch()[0]
-	s_key = s.key
-	
-if len(User.query(User.username == 'instructor').fetch()) == 0:
-	i = User(
-		username = 'instructor',
-		password = 'instructor',
-		firstname = 'instructor',
-		lastname = 'instructor',
-		email = 'instructor',
-		accounttype ='instructor'
-	)
-	i_key = i.unique_put()
-else:
-	i = User.query(User.username == 'instructor').fetch()[0]
-	i_key = i.key
-	
-c = Class(classname = 'TESTCLASS')
-d = Class(classname = 'testclass2')
-c.unique_put()
-d.unique_put()
-s = s_key.get()
-u = u_key.get()
-i = i_key.get()
-s.reset_classlist()
-u.reset_classlist()
-i.reset_classlist()
-u.add_class(c)
-u.add_class(d)
-s.add_class(c)
-s.add_class(d)
-i.add_class(c)
-i.add_class(d)
-i.put()
-u.put()
-s.put()
 	
 class QuestionTests(unittest.TestCase):
-	student = User.query(User.username == 'student').fetch()[0]
-	admin = User.query(User.username == 'instructor').fetch()[0]
-	student_key = student.key
-	admin_key = admin.key
-	classy = Class.query(Class.classname == 'TESTCLASS').fetch()[0]
-	class_key = classy.key
-	q00 = Question(senderUID = student_key, classUID = class_key, message = 'What is the air speed velocity of a swallow?')
-	q00_key = q00.put()
-	q01 = Question(senderUID = student_key, classUID = class_key, message = 'What is your favorite color?')
-	q01_key = q01.put()
-	q02 = Question(senderUID = student_key, classUID = class_key, message = 'What is your quest?')
-	q02_key = q02.put()
-	def setup(self):
-		return 0
-	def tear(self):
-		self.q00.respondentUID=None
-		self.q00.response=None
-		self.q00.put()
+	def setUp(self):
+		self.student = User(
+			username = 'student_test',
+			password = 'student',
+			firstname = 'student',
+			lastname = 'student',
+			email = 'student', 
+			accounttype = STUDENT
+		)
+		self.instructor = User(
+			username = 'instructor_test',
+			password = 'instructor',
+			firstname = 'instructor',
+			lastname = 'instructor',
+			email = 'instructor',
+			accounttype = ADMIN
+		)
+		self.admin = User(
+			username = 'admin_test',
+			password = 'admin',
+			firstname = 'admin',
+			lastname = 'admin',
+			email = 'admin',
+			accounttype = SADMIN
+		)
+		#create a test class
+		self.classy = Class(classname = 'TESTCLASS_test')
+		self.class_key = self.classy.put()
+		time.sleep(2)
 		
-		self.q01.respondentUID=None
-		self.q01.response=None
-		self.q01.put()
+		#add class to classlists
+		self.student.add_class(self.classy)
+		self.instructor.add_class(self.classy)
+		self.admin.add_class(self.classy)
 		
-		self.q02.respondentUID=None
-		self.q02.response=None
-		self.q02.put()
+		#put the users
+		self.student_key = self.student.put()
+		self.instructor_key = self.instructor.put()
+		self.admin_key = self.admin.put()
+		time.sleep(2)
 		
-		categories = Category.query(ancestor=self.class_key).fetch()
-		for c in categories:
-			c.key.delete()
+		#create the questions
+		self.q00 = Question(
+			senderUID = self.student_key,
+			classUID = self.class_key,
+			message = 'What is the air speed velocity of a swallow?'
+		)
+		self.q01 = Question(
+			senderUID = self.student_key, 
+			classUID = self.class_key, 
+			message = 'What is your favorite color?'
+		)
+		self.q02 = Question(
+			senderUID = self.student_key, 
+			classUID = self.class_key, 
+			message = 'What is your quest?'
+		)
+		self.q00_key = self.q00.put()
+		self.q01_key = self.q01.put()
+		self.q02_key = self.q02.put()
+		time.sleep(2)
+		
+	def tearDown(self):
+		self.student_key.delete()
+		self.instructor_key.delete()
+		self.admin_key.delete()
+		self.class_key.delete()
+		self.q00_key.delete()
+		self.q01_key.delete()
+		self.q02_key.delete()
+		time.sleep(2)
+		
+		del self.admin
+		del self.admin_key
+		del self.instructor
+		del self.instructor_key
+		del self.student
+		del self.student_key
+		
+		del self.classy
+		del self.class_key
+		
+		del self.q00
+		del self.q00_key
+		del self.q01
+		del self.q01_key
+		del self.q02
+		del self.q02_key
+		
+		
 	def test_instructor_can_respond(self):
-		self.setup()
+		
 		qkey = self.q00_key
 		respond = ResponseHandler()
 		session = {
-			'account': self.admin.username,
+			'account': self.instructor.username,
 			'accounttypr': ADMIN,
 			'class': self.classy.classname,
 			'question_key': qkey.urlsafe(),
@@ -148,16 +147,16 @@ class QuestionTests(unittest.TestCase):
 		self.assertFalse(question.respondentUID == None)
 		self.assertFalse(question.response == None)
 		self.assertFalse(question.response == '')
-		self.assertTrue(question.respondentUID == self.admin.key)
+		self.assertTrue(question.respondentUID == self.instructor.key)
 		self.assertTrue(question.response == 'test')
 		#del respond
-		self.tear()
+		
 	def test_instructor_can_create_new_category(self):
-		self.setup()
+		
 		qkey = self.q00_key
 		respond = ResponseHandler()
 		session = {
-			'account': self.admin.username,
+			'account': self.instructor.username,
 			'accounttypr': ADMIN,
 			'class': self.classy.classname,
 			'question_key': qkey.urlsafe(),
@@ -186,15 +185,15 @@ class QuestionTests(unittest.TestCase):
 		category.key.delete()
 		
 		#del respond
-		self.tear()
+		
 	def test_instructor_can_set_category_to_answer(self):
-		self.setup()
+		
 		
 		qkey = self.q00_key
 		
 		respond = ResponseHandler()
 		session = {
-			'account': self.admin.username,
+			'account': self.instructor.username,
 			'accounttypr': ADMIN,
 			'class': self.classy.classname,
 			'question_key': qkey.urlsafe(),
@@ -221,15 +220,15 @@ class QuestionTests(unittest.TestCase):
 		question.key.delete()
 		cate.key.delete()
 		#del respond
-		self.tear()
+		
 	def test_instructor_can_respond_with_faq(self):
-		self.setup()
+		
 		
 		qkey = self.q00_key
 		
 		respond = ResponseHandler()
 		session = {
-			'account': self.admin.username,
+			'account': self.instructor.username,
 			'accounttypr': ADMIN,
 			'class': self.classy.classname,
 			'question_key': qkey.urlsafe(),
@@ -251,9 +250,9 @@ class QuestionTests(unittest.TestCase):
 		question = qkey.get()
 		self.assertTrue(question.response == R_INFAQ)
 		
-		self.tear()
+		
 	def test_questions_in_FAQ_have_category(self):
-		self.setup()
+		
 		#create a category and put it to the DB
 		cate = Category(name="test category 00", parent=self.classy.key)
 		cate.put()
@@ -277,9 +276,9 @@ class QuestionTests(unittest.TestCase):
 		self.assertTrue(faq[0].key == self.q00_key)
 		
 		cate.key.delete()
-		self.tear()
+		
 	def test_questions_not_in_FAQ_have_no_category(self):
-		self.setup()
+		
 		#create a category and put it to the DB
 		cate = Category(name="test category 01", parent=self.classy.key)
 		cate.put()
@@ -308,9 +307,9 @@ class QuestionTests(unittest.TestCase):
 			self.assertTrue(q in all_questions)
 		
 		cate.key.delete()
-		self.tear()
+		
 	def test_unanswered_questions_have_no_category(self):
-		self.setup()
+		
 		questions = [None]*100
 		for i in range(100):
 			questions[i] = Question(senderUID = self.student.key, classUID = self.classy.key, message = 'This is an unanswered question?').put()
@@ -320,9 +319,9 @@ class QuestionTests(unittest.TestCase):
 			self.assertTrue(q.get().category==None)
 			q.delete()
 		
-		self.tear()
+		
 	def test_question_submit_student(self):
-		self.setup()
+		
 		
 		key00 = self.q00_key
 		key01 = self.q01_key
@@ -355,7 +354,7 @@ class QuestionTests(unittest.TestCase):
 		self.assertTrue(q02.classUID == self.q02.classUID)
 		self.assertTrue(q02.response == None)
 		
-		self.tear()
+		
 	"""
 	def test_validate_user(self):
 		self.assertTrue(False)
@@ -409,4 +408,3 @@ runner = HTMLTestRunner.HTMLTestRunner(
 	title='Test Results',
 	description='Test output for question_system.'
 )
-

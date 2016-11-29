@@ -34,34 +34,25 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 
 class QuestionHandler(BaseHandler):
 	def get(self): #where question is composed by the user
-		#get user from the key placed in a hidden submit object in the main handler
-		#user_key = Key(urlsafe = self.request.get('user_key'))
 		#gets the accountname, accounttype, and classname
 		accountname = self.session.get('account')
 		accounttype = self.session.get('accounttype')
 		classname = self.request.get('class')
+		#add the classname to the session
 		self.session['class'] = classname
-		if accountname != '':
-			#user is logged in as accountname
-			user = User.query(User.username == accountname).fetch()[0]
+		if self.validate_user(accountname, accounttype=STUDENT):
+			classes = Class.query(Class.classname==classname).fetch()
 			
-			if user.accounttype == 'student':
-				#user has correct type
-				classes = Class.query(Class.classname==classname).fetch()
-				
-				#check that the class in the session was found in the database
-				#TODO: add a loop to check that the class is in the user's classlist
-				if len(classes) == 1:
-					#class was found
-					template = JINJA_ENVIRONMENT.get_template('./html/ask.html')
-					self.response.write(template.render())
-				else:
-					#class was not found or more than one class was found
-					#redirect to your homepage
-					super(QuestionHandler, self).error_redirect('CLASS_NOT_FOUND', '/studenthomepage')
-				
+			#check that the class in the session was found in the database
+			#TODO: add a loop to check that the class is in the user's classlist
+			if len(classes) == 1:
+				#class was found
+				template = JINJA_ENVIRONMENT.get_template('./html/ask.html')
+				self.response.write(template.render())
 			else:
-				super(QuestionHandler, self).error_redirect('INVALID_LOGIN_STATE', '/')
+				#class was not found or more than one class was found
+				#redirect to your homepage
+				super(QuestionHandler, self).error_redirect('CLASS_NOT_FOUND', '/studenthomepage')
 		else:		
 			super(QuestionHandler, self).error_redirect('INVALID_LOGIN_STATE', '/')
 			
@@ -83,43 +74,13 @@ class QuestionHandler(BaseHandler):
 			
 			question = Question(senderUID = user.key, classUID = classes[0].key, message = self.session.get('message'))
 			if question.submit_question() != 0:
-				self.session['class'] = ''
-				self.session['message'] = ''
+				self.session.pop('class')
+				self.session.pop('message')
 				super(QuestionHandler, self).success_redirect('QSUBMIT_SUCCESS', '/studenthomepage')
 			else:
 				super(QuestionHandler, self).error_redirect('QSUBMIT_FAIL', '/ask')
 		else:
 			super(QuestionHandler, self).error_redirect('INVALID_LOGIN_STATE', '/')
-
-"""
-class ReviewHandler(webapp2.RequestHandler):
-	def get(self):
-		
-		user_key = None
-		
-		try:
-			user_key = Key(urlsafe=self.request.get('user_key'))
-		except TypeError:
-			self.response.write('<div style="color: red;">Unable to make key from user_key!</div><br>')
-		
-		#get the class
-		
-		class_query = Class.query(Class.classname == self.request.get('class')).fetch()
-		
-		if len(class_query) == 1:
-			classy = class_query[0]
-			if user_key != None and isinstance(classy, Class):
-				questions = Question.query(Question.classUID == classy.key).fetch()
-				data = {
-					'user_key':user_key.urlsafe(),
-					'class_key':classy.key.urlsafe(),
-					'questions':questions,
-				}
-				template = JINJA_ENVIRONMENT.get_template('review.html')
-				self.response.write(template.render(data))
-		else:
-			self.response.write('Duplicate or no classes exist in datastore with given classname.')
-"""
 
 class ResponseHandler(BaseHandler):
 
@@ -175,44 +136,42 @@ class ResponseHandler(BaseHandler):
 		classname = self.session.get('class')
 		categoryname = self.request.get('cname')
 		new_cname = self.request.get('new_cname')
-		if accountname != '':
-			#user is logged in as accountname
+		
+		if self.validate_user(accountname, accounttype = ADMIN):
+			#user is logged in as accountname qand accounttype is ADMIN
 			user = User.query(User.username == accountname).fetch()[0]
-			if user.accounttype == 'instructor':
-				classes = Class.query(Class.classname==classname).fetch()
-				#TODO: add a loop to check that the class is in the user's classlist
-				if len(classes) == 1:
-					classy = classes[0]
-					
-					if categoryname != 'none' and categoryname != '':
-					
-						if categoryname == 'newCategory' and new_cname != '':
-							categoryname = new_cname
-							
-						category = Category.query(Category.name == categoryname, ancestor=classy.key).fetch()
-						if len(category) == 1:
-							category = category[0]
-						elif len(category) == 0:
-							category = Category(name=categoryname, parent=classy.key)
-							category.put()
-						else:
-							category = None
-						if category != None:
-							question.category = category.key
-					
-					if question.respond_question(user.key, response) != 0:
-						self.session['class'] = ''
-						self.session['question'] = ''
-						super(ResponseHandler, self).success_redirect('RSUBMIT_SUCCESS', '/instructorhomepage')
+			
+			if len(classes) == 1:
+				classy = classes[0]
+				
+				if categoryname != 'none' and categoryname != '':
+				
+					if categoryname == 'newCategory' and new_cname != '':
+						categoryname = new_cname
+						
+					category = Category.query(Category.name == categoryname, ancestor=classy.key).fetch()
+					if len(category) == 1:
+						category = category[0]
+					elif len(category) == 0:
+						category = Category(name=categoryname, parent=classy.key)
+						category.put()
 					else:
-						super(ResponseHandler, self).error_redirect('RSUBMIT_FAIL', '/instructorhomepage')
+						category = None
+					if category != None:
+						question.category = category.key
+				
+				if question.respond_question(user.key, response) != 0:
+					self.session.pop('class')
+					self.session.pop('question')
+					super(ResponseHandler, self).success_redirect('RSUBMIT_SUCCESS', '/instructorhomepage')
 				else:
-					super(ResponseHandler, self).error_redirect('CLASS_NOT_FOUND', '/instructorhomepage')
+					super(ResponseHandler, self).error_redirect('RSUBMIT_FAIL', '/instructorhomepage')
 			else:
-				super(ResponseHandler, self).error_redirect('INVALID_LOGIN_STATE', '/')
+				super(ResponseHandler, self).error_redirect('CLASS_NOT_FOUND', '/instructorhomepage')
+
 		else:		
 			super(ResponseHandler, self).error_redirect('INVALID_LOGIN_STATE', '/')
 			
-	def respond_question_wrapper(self, question, accountname, accounttype, classname):
+	def respond_question_wrapper(self, response, question, accountname, accounttype, classname, categoryname, new_cname):
 		#testable version
 		return 0
